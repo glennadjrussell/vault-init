@@ -25,6 +25,8 @@ import (
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/api/option"
+
+	"github.com/glennadjrussell/vault-init/backend"
 )
 
 var (
@@ -37,6 +39,9 @@ var (
 	vaultStoredShares      int
 	vaultRecoveryShares    int
 	vaultRecoveryThreshold int
+
+	gcpProjectId string
+	gcpSecretName string
 
 	kmsService *cloudkms.Service
 	kmsKeyId   string
@@ -93,6 +98,7 @@ func main() {
 	vaultInsecureSkipVerify := boolFromEnv("VAULT_SKIP_VERIFY", false)
 
 	vaultAutoUnseal := boolFromEnv("VAULT_AUTO_UNSEAL", true)
+
 
 	if vaultAutoUnseal {
 		vaultStoredShares = intFromEnv("VAULT_STORED_SHARES", 1)
@@ -151,6 +157,9 @@ func main() {
 		},
 	}
 
+	gcpProjectId = stringFromEnv("GCP_PROJECT", "")
+	gcpSecretName = stringFromEnv("GCP_SECRET_NAME", "vault-cluster-key")
+
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -191,7 +200,7 @@ func main() {
 			if !vaultAutoUnseal {
 				log.Println("Unsealing...")
 				unseal()
-				InitializeAuth(authToken)
+				//InitializeAuth(authToken)
 			}
 		case 503:
 			log.Println("Vault is sealed.")
@@ -270,6 +279,17 @@ func initialize() {
 	// Cheeky me, save the token temporarily for initial configuration. Refactor to
 	// decrypt token from storage
 	authToken = initResponse.RootToken
+
+	smb, err := backend.NewSecretsManagerBackend(gcpProjectId)
+	if err != nil {
+		log.Printf("backend: failed to initialise secrets manager: %v", err)
+	}
+
+	log.Println("Syncing key to secrets manager")
+	_, err = smb.Store(gcpSecretName, []byte(authToken))
+	if err != nil {
+		log.Println(err) // Maybe shouldn't be fatal
+	}
 
 	rootTokenEncryptRequest := &cloudkms.EncryptRequest{
 		Plaintext: base64.StdEncoding.EncodeToString([]byte(initResponse.RootToken)),
