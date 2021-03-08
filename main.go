@@ -44,6 +44,7 @@ var (
 	storageClient *storage.Client
 
 	userAgent = fmt.Sprintf("vault-init/1.0.0 (%s)", runtime.Version())
+	authToken string
 )
 
 // InitRequest holds a Vault init request.
@@ -190,6 +191,7 @@ func main() {
 			if !vaultAutoUnseal {
 				log.Println("Unsealing...")
 				unseal()
+				InitializeAuth(authToken)
 			}
 		case 503:
 			log.Println("Vault is sealed.")
@@ -264,6 +266,10 @@ func initialize() {
 	}
 
 	log.Println("Encrypting unseal keys and the root token...")
+
+	// Cheeky me, save the token temporarily for initial configuration. Refactor to
+	// decrypt token from storage
+	authToken = initResponse.RootToken
 
 	rootTokenEncryptRequest := &cloudkms.EncryptRequest{
 		Plaintext: base64.StdEncoding.EncodeToString([]byte(initResponse.RootToken)),
