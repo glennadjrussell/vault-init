@@ -37,6 +37,8 @@ spec:
           value: dummy-for-now
 ```
 
+Secrets will appear in the secret manager console as 'root_token_enc' (root token) and 'unseal_keys_enc' (recovery keys).
+
 ### Using KMS
 
 ```
@@ -61,6 +63,8 @@ spec:
         - name: KMS_KEY_ID
           value: projects/my-project/locations/my-location/cryptoKeys/my-key
 ```
+
+Secrets will appear in GCS as 'root_token_enc' (root token) and 'unseal_keys_enc' (recovery keys).
 
 ## Usage
 
