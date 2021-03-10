@@ -6,10 +6,8 @@ package main
 
 import (
 	"bytes"
-	//"context"
 	"crypto/tls"
 	"crypto/x509"
-	//"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -19,12 +17,12 @@ import (
 	"os/signal"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/cloudkms/v1"
-	//"google.golang.org/api/option"
 
 	"github.com/glennadjrussell/vault-init/backend"
 )
@@ -51,8 +49,11 @@ var (
 	userAgent = fmt.Sprintf("vault-init/1.0.0 (%s)", runtime.Version())
 	authToken string
 
-	// KMS backend
-	kmsBackend *backend.KmsBackend
+	// Key backend
+	vaultKeyEngine string
+	kmsBackendEnabled bool
+	ssmBackendEnabled bool
+	keyBackend backend.KeyBackend
 )
 
 // InitRequest holds a Vault init request.
@@ -128,12 +129,31 @@ func main() {
 		log.Fatal("KMS_KEY_ID must be set and not empty")
 	}
 
+	vaultKeyEngine = os.Getenv("VAULT_KEY_ENGINE")
+	if vaultKeyEngine == "" {
+		log.Fatal("VAULT_KEY_ENGINE must be set and not empty")
+	}
+
 	// New Code
-	kmsBackend, err = backend.NewKmsBackend(kmsKeyId, gcsBucketName)
-	if err != nil {
-		log.Fatalf("unable to initialize kms backend: %v", err)
+	engineLc := strings.ToLower(vaultKeyEngine)
+	if engineLc == "kms" {
+		keyBackend, err = backend.NewKmsBackend(kmsKeyId, gcsBucketName)
+		if err != nil {
+			log.Fatalf("unable to initialize kms backend: %v", err)
+			return
+		}
+	} else if engineLc == "ssm" {
+		gcpProjectId = stringFromEnv("GCP_PROJECT", "")
+		keyBackend, err = backend.NewSecretsManagerBackend(gcpProjectId)
+		if err != nil {
+			log.Fatalf("unable to initialize secrets manager backend: %v", err)
+			return
+		}
+	} else {
+		log.Fatalf("vault key backend not recognized: %s", engineLc)
 		return
 	}
+
 
 	// Old Code
 	//kmsCtx, kmsCtxCancel := context.WithCancel(context.Background())
@@ -168,8 +188,6 @@ func main() {
 		},
 	}
 
-	gcpProjectId = stringFromEnv("GCP_PROJECT", "")
-	gcpSecretName = stringFromEnv("GCP_SECRET_NAME", "vault-cluster-key")
 
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
@@ -294,8 +312,8 @@ func initialize() {
 	// decrypt token from storage
 	authToken = initResponse.RootToken
 
-	kmsBackend.Store("root-token.enc", []byte(initResponse.RootToken))
-	kmsBackend.Store("unseal-keys.json.enc", initRequestResponseBody)
+	keyBackend.Store("root-token.enc", []byte(initResponse.RootToken))
+	keyBackend.Store("unseal-keys.json.enc", initRequestResponseBody)
 
 	//rootTokenEncryptRequest := &cloudkms.EncryptRequest{
 	//	Plaintext: base64.StdEncoding.EncodeToString([]byte(initResponse.RootToken)),
@@ -375,7 +393,7 @@ func unseal() {
 
 	var initResponse InitResponse
 
-	unsealKeysPlaintext, err := kmsBackend.Read("unseal-keys.json.enc")
+	unsealKeysPlaintext, err := keyBackend.Read("unseal-keys.json.enc")
 	//unsealKeysPlaintext, err := base64.StdEncoding.DecodeString(unsealKeysDecryptResponse.Plaintext)
 	if err != nil {
 		log.Println(err)
