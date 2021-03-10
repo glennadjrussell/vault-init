@@ -31,6 +31,10 @@ spec:
           value: SSM
         - name: GCP_PROJECT
           value: "my-project-id"
+        - name: GCS_BUCKET_NAME
+          value: dummy-for-now
+        - name: KMS_KEY_ID
+          value: dummy-for-now
 ```
 
 ### Using KMS
