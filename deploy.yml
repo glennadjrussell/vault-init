@@ -7,17 +7,13 @@ metadata:
 spec:
   containers:
     - name: vault-init
-      image: glennadjrussell/vault-init:0.1.11
+      image: glennadjrussell/vault-init:0.1.14
       imagePullPolicy: Always
       env:
         - name: VAULT_ADDR
           value: "http://vault-0.vault-internal:8200"
-        - name: GCS_BUCKET_NAME
-          value: qbank-test-bucket
-        - name: KMS_KEY_ID
-          value: "projects/qbank-266411/locations/global/keyRings/vault-dev-unseal-keyring-x/cryptoKeys/vault-key"
+        - name: VAULT_KEY_ENGINE
+          value: SSM
         - name: GCP_PROJECT
           value: "qbank-266411"
-        - name: GCP_SECRET_NAME
-          value: "my-cluster-keys"
 

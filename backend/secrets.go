@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"encoding/base64"
-	//"encoding/json"
 	"runtime"
 
 	option "google.golang.org/api/option"

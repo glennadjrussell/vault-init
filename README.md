@@ -6,6 +6,58 @@ This is a fork of of sethvargo/vault-init, adding support for multiple backends 
 
 After `vault-init` initializes a Vault server it stores master keys and root tokens, encrypted using [Google Cloud KMS](https://cloud.google.com/kms), to a user defined [Google Cloud Storage](https://cloud.google.com/storage) bucket.
 
+## Security
+It should be stated up front that right now, storing of the root token, rather than the instant revocation once initial provisioning has been performed, is against best practices. The work contained in the auth.go file is some work to have the init container provision an admin group on initialisation.
+
+## Deploying to a cluster
+### Using Google Secrets Manager
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vault-init
+  labels:
+    role: vault-init
+spec:
+  containers:
+    - name: vault-init
+      image: glennadjrussell/vault-init:0.1.14
+      imagePullPolicy: Always
+      env:
+        - name: VAULT_ADDR
+          value: "http://vault-0.vault-internal:8200"
+        - name: VAULT_KEY_ENGINE
+          value: SSM
+        - name: GCP_PROJECT
+          value: "my-project-id"
+```
+
+### Using KMS
+
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vault-init
+  labels:
+    role: vault-init
+spec:
+  containers:
+    - name: vault-init
+      image: glennadjrussell/vault-init:0.1.14
+      imagePullPolicy: Always
+      env:
+        - name: VAULT_ADDR
+          value: "http://vault-0.vault-internal:8200"
+        - name: VAULT_KEY_ENGINE
+          value: KMS
+        - name: GCS_BUCKET_NAME
+          value: my-gcs-bucket
+        - name: KMS_KEY_ID
+          value: projects/my-project/locations/my-location/cryptoKeys/my-key
+```
+
 ## Usage
 
 The `vault-init` service is designed to be run alongside a Vault server and
@@ -23,7 +75,7 @@ To use this as part of a Kubernetes Vault Deployment:
 ```yaml
 containers:
 - name: vault-init
-  image: glennadjrussell/vault-init:0.1.11
+  image: glennadjrussell/vault-init:0.1.14
   imagePullPolicy: Always
   env:
   - name: GCS_BUCKET_NAME

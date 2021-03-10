@@ -54,6 +54,9 @@ var (
 	kmsBackendEnabled bool
 	ssmBackendEnabled bool
 	keyBackend backend.KeyBackend
+
+        rootTokenFd = "root_token_enc"
+        unsealKeysFd = "unseal_keys_enc"
 )
 
 // InitRequest holds a Vault init request.
@@ -312,8 +315,8 @@ func initialize() {
 	// decrypt token from storage
 	authToken = initResponse.RootToken
 
-	keyBackend.Store("root-token.enc", []byte(initResponse.RootToken))
-	keyBackend.Store("unseal-keys.json.enc", initRequestResponseBody)
+	keyBackend.Store(rootTokenFd, []byte(initResponse.RootToken))
+	keyBackend.Store(unsealKeysFd, initRequestResponseBody)
 
 	//rootTokenEncryptRequest := &cloudkms.EncryptRequest{
 	//	Plaintext: base64.StdEncoding.EncodeToString([]byte(initResponse.RootToken)),
@@ -393,7 +396,7 @@ func unseal() {
 
 	var initResponse InitResponse
 
-	unsealKeysPlaintext, err := keyBackend.Read("unseal-keys.json.enc")
+	unsealKeysPlaintext, err := keyBackend.Read(unsealKeysFd)
 	//unsealKeysPlaintext, err := base64.StdEncoding.DecodeString(unsealKeysDecryptResponse.Plaintext)
 	if err != nil {
 		log.Println(err)
