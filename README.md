@@ -2,6 +2,8 @@
 
 The `vault-init` service automates the process of [initializing](https://www.vaultproject.io/docs/commands/operator/init.html) and [unsealing](https://www.vaultproject.io/docs/concepts/seal.html#unsealing) HashiCorp Vault instances running on [Google Cloud Platform](https://cloud.google.com).
 
+This is a fork of of sethvargo/vault-init, adding support for multiple backends for storing recovery keys and the root token. Support for Google Secrets Manager is first.
+
 After `vault-init` initializes a Vault server it stores master keys and root tokens, encrypted using [Google Cloud KMS](https://cloud.google.com/kms), to a user defined [Google Cloud Storage](https://cloud.google.com/storage) bucket.
 
 ## Usage
@@ -13,7 +15,7 @@ You can download the code and compile the binary with Go. Alternatively, a
 Docker container is available via the Docker Hub:
 
 ```text
-$ docker pull sethvargo/vault-init
+$ docker pull glennadjrussell/vault-init:0.1.11
 ```
 
 To use this as part of a Kubernetes Vault Deployment:
@@ -21,7 +23,7 @@ To use this as part of a Kubernetes Vault Deployment:
 ```yaml
 containers:
 - name: vault-init
-  image: registry.hub.docker.com/sethvargo/vault-init:0.1.2
+  image: glennadjrussell/vault-init:0.1.11
   imagePullPolicy: Always
   env:
   - name: GCS_BUCKET_NAME
