@@ -157,26 +157,6 @@ func main() {
 		return
 	}
 
-
-	// Old Code
-	//kmsCtx, kmsCtxCancel := context.WithCancel(context.Background())
-	//defer kmsCtxCancel()
-	//kmsService, err = cloudkms.NewService(kmsCtx)
-	//if err != nil {
-	//	log.Println(err)
-	//	return
-	//}
-	//kmsService.UserAgent = userAgent
-
-	//storageCtx, storageCtxCancel := context.WithCancel(context.Background())
-	//defer storageCtxCancel()
-	//storageClient, err = storage.NewClient(storageCtx,
-	//	option.WithUserAgent(userAgent),
-	//	option.WithScopes(storage.ScopeReadWrite))
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: vaultInsecureSkipVerify,
 	}
@@ -235,7 +215,6 @@ func main() {
 			if !vaultAutoUnseal {
 				log.Println("Unsealing...")
 				unseal()
-				//InitializeAuth(authToken)
 			}
 		case 503:
 			log.Println("Vault is sealed.")
@@ -311,93 +290,18 @@ func initialize() {
 
 	log.Println("Encrypting unseal keys and the root token...")
 
-	// Cheeky me, save the token temporarily for initial configuration. Refactor to
-	// decrypt token from storage
 	authToken = initResponse.RootToken
 
 	keyBackend.Store(rootTokenFd, []byte(initResponse.RootToken))
 	keyBackend.Store(unsealKeysFd, initRequestResponseBody)
 
-	//rootTokenEncryptRequest := &cloudkms.EncryptRequest{
-	//	Plaintext: base64.StdEncoding.EncodeToString([]byte(initResponse.RootToken)),
-	//}
-
-	//rootTokenEncryptResponse, err := kmsService.Projects.Locations.KeyRings.CryptoKeys.Encrypt(kmsKeyId, rootTokenEncryptRequest).Do()
-	//if err != nil {
-	//	log.Println(err)
-	//	return
-	//}
-
-	//unsealKeysEncryptRequest := &cloudkms.EncryptRequest{
-	//	Plaintext: base64.StdEncoding.EncodeToString(initRequestResponseBody),
-	//}
-
-	//unsealKeysEncryptResponse, err := kmsService.Projects.Locations.KeyRings.CryptoKeys.Encrypt(kmsKeyId, unsealKeysEncryptRequest).Do()
-	//if err != nil {
-	//	log.Println(err)
-	//	return
-	//}
-
-	//bucket := storageClient.Bucket(gcsBucketName)
-
-	// Save the encrypted unseal keys.
-	//ctx := context.Background()
-	//unsealKeysObject := bucket.Object("unseal-keys.json.enc").NewWriter(ctx)
-	//defer unsealKeysObject.Close()
-
-	//_, err = unsealKeysObject.Write([]byte(unsealKeysEncryptResponse.Ciphertext))
-	//if err != nil {
-	//	log.Println(err)
-	//}
-
-	//log.Printf("Unseal keys written to gs://%s/%s", gcsBucketName, "unseal-keys.json.enc")
-
-	// Save the encrypted root token.
-	//rootTokenObject := bucket.Object("root-token.enc").NewWriter(ctx)
-	//defer rootTokenObject.Close()
-
-	//_, err = rootTokenObject.Write([]byte(rootTokenEncryptResponse.Ciphertext))
-	//if err != nil {
-	//	log.Println(err)
-	//}
-
-	//log.Printf("Root token written to gs://%s/%s", gcsBucketName, "root-token.enc")
-
 	log.Println("Initialization complete.")
 }
 
 func unseal() {
-	//bucket := storageClient.Bucket(gcsBucketName)
-
-	//ctx := context.Background()
-	//unsealKeysObject, err := bucket.Object("unseal-keys.json.enc").NewReader(ctx)
-	//if err != nil {
-	//	log.Println(err)
-	//	return
-	//}
-
-	//defer unsealKeysObject.Close()
-
-	//unsealKeysData, err := ioutil.ReadAll(unsealKeysObject)
-	//if err != nil {
-	//	log.Println(err)
-	//	return
-	//}
-
-	//unsealKeysDecryptRequest := &cloudkms.DecryptRequest{
-	//	Ciphertext: string(unsealKeysData),
-	//}
-
-	//unsealKeysDecryptResponse, err := kmsService.Projects.Locations.KeyRings.CryptoKeys.Decrypt(kmsKeyId, unsealKeysDecryptRequest).Do()
-	//if err != nil {
-	//	log.Println(err)
-	//	return
-	//}
-
 	var initResponse InitResponse
 
 	unsealKeysPlaintext, err := keyBackend.Read(unsealKeysFd)
-	//unsealKeysPlaintext, err := base64.StdEncoding.DecodeString(unsealKeysDecryptResponse.Plaintext)
 	if err != nil {
 		log.Println(err)
 		return

@@ -16,4 +16,8 @@ spec:
           value: SSM
         - name: GCP_PROJECT
           value: "qbank-266411"
+        - name: GCS_BUCKET_NAME
+          value: "qbank-test-bucket"
+        - name: KMS_KEY_ID
+          value: "dummy"
 
