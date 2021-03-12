@@ -292,8 +292,15 @@ func initialize() {
 
 	authToken = initResponse.RootToken
 
-	keyBackend.Store(rootTokenFd, []byte(initResponse.RootToken))
-	keyBackend.Store(unsealKeysFd, initRequestResponseBody)
+	_, err = keyBackend.Store(rootTokenFd, []byte(initResponse.RootToken))
+	if err != nil {
+		log.Fatalf("failed to write root token secret: %s", initResponse.RootToken)
+	}
+
+	_, err = keyBackend.Store(unsealKeysFd, initRequestResponseBody)
+	if err != nil {
+		log.Fatalf("failed to write unseal secret: %s", initRequestResponseBody)
+	}
 
 	log.Println("Initialization complete.")
 }
