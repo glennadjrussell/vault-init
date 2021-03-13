@@ -185,6 +185,10 @@ func main() {
 		os.Exit(0)
 	}
 
+	log.Println("Initialising backups")
+	done := make(chan bool)
+	Backup(done)
+
 	for {
 		select {
 		case <-signalCh:
