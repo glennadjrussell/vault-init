@@ -2,9 +2,14 @@
 package main
 
 import (
-	//"net/http"
+	"fmt"
+	"context"
+	"net/http"
+	"io/ioutil"
 	"log"
 	"time"
+
+	//storage "cloud.google.com/go/storage"
 )
 
 var (
@@ -18,29 +23,59 @@ func Backup(ch <-chan bool) (bool, error) {
 		for {
 			select {
 			case <- ch:
+				backupTicker.Stop()
 				return
 			case t := <-backupTicker.C:
-				log.Printf("Backup running at %d", t)
-				response, err := httpClient.Get(vaultAddr+"/v1/sys/storage/raft/snapshot")
-				if response != nil && response.Body != nil {
-					response.Body.Close()
-				}
+				log.Printf("Backup running at %t", t)
 
+				req, err :=  http.NewRequest("GET", vaultAddr+"/v1/sys/storage/raft/snapshot", nil)
 				if err != nil {
-					log.Println(err)
+					log.Printf("error occurred during backup %v", err)
+					continue
 				}
 
-				log.Println(response.Body)
+				token, err := keyBackend.Read(rootTokenFd)
+				if err != nil {
+					log.Printf("error occurred reading token %v", err)
+					continue
+				}
+
+				req.Header.Set("X-Vault-Token", string(token))
+				response, err := httpClient.Do(req)
+				if response != nil && response.Body != nil {
+					//response.Body.Close()
+				}
+
+				if err != nil || response.StatusCode != 200 {
+					log.Printf("error occurred during backup %d, %v", response.StatusCode, err)
+				}
+
+				bodyBuffer, _ := ioutil.ReadAll(response.Body)
+				fileName := fmt.Sprintf("vault_backup_%d_%02d_%02dT%02d_%02d_%02d.snap",
+					t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
+				Upload(fileName, bodyBuffer)
 			}
 		}
 	}()
 
-	backupTicker.Stop()
-
+	log.Println("Backups initialised")
 	return true, nil
 }
 
-func Upload() (bool, error) {
-	return false, nil
+func Upload(file string, data []byte) (bool, error) {
+	log.Printf("Writing backup to %s", file)
+
+	ctx := context.Background()
+	bucket := storageClient.Bucket(gcsBucketName)
+	dataObject := bucket.Object("vault/"+file).NewWriter(ctx)
+	defer dataObject.Close()
+
+	_, err := dataObject.Write(data)
+	if err != nil {
+		log.Println("failed to write backup file")
+		return false, err
+	}
+
+	return true, nil
 }
 
