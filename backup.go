@@ -9,7 +9,8 @@ import (
 	"log"
 	"time"
 
-	//storage "cloud.google.com/go/storage"
+	option "google.golang.org/api/option"
+	storage "cloud.google.com/go/storage"
 )
 
 var (
@@ -26,7 +27,7 @@ func Backup(ch <-chan bool) (bool, error) {
 				backupTicker.Stop()
 				return
 			case t := <-backupTicker.C:
-				log.Printf("Backup running at %t", t)
+				log.Printf("Backup running at %t", t.String())
 
 				req, err :=  http.NewRequest("GET", vaultAddr+"/v1/sys/storage/raft/snapshot", nil)
 				if err != nil {
@@ -62,15 +63,25 @@ func Backup(ch <-chan bool) (bool, error) {
 	return true, nil
 }
 
-func Upload(file string, data []byte) (bool, error) {
-	log.Printf("Writing backup to %s", file)
+func Upload(file string, backupData []byte) (bool, error) {
+	log.Printf("Writing backup to %s/%s", gcsBucketName, file)
+
+        storageCtx, storageCtxCancel := context.WithCancel(context.Background())
+        defer storageCtxCancel()
+
+        storageClient, err := storage.NewClient(storageCtx,
+                option.WithUserAgent(userAgent),
+                option.WithScopes(storage.ScopeReadWrite))
+        if err != nil {
+                log.Fatal(err)
+        }
 
 	ctx := context.Background()
 	bucket := storageClient.Bucket(gcsBucketName)
-	dataObject := bucket.Object("vault/"+file).NewWriter(ctx)
+	dataObject := bucket.Object(file).NewWriter(ctx)
 	defer dataObject.Close()
 
-	_, err := dataObject.Write(data)
+	_, err = dataObject.Write(backupData)
 	if err != nil {
 		log.Println("failed to write backup file")
 		return false, err

@@ -7,7 +7,7 @@ metadata:
 spec:
   containers:
     - name: vault-init
-      image: glennadjrussell/vault-init:0.1.23
+      image: glennadjrussell/vault-init:0.1.26
       imagePullPolicy: Always
       env:
         - name: VAULT_ADDR
