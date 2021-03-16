@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -38,7 +39,7 @@ var (
 	vaultRecoveryShares    int
 	vaultRecoveryThreshold int
 
-	gcpProjectId string
+	gcpProjectId  string
 	gcpSecretName string
 
 	kmsService *cloudkms.Service
@@ -50,13 +51,13 @@ var (
 	authToken string
 
 	// Key backend
-	vaultKeyEngine string
+	vaultKeyEngine    string
 	kmsBackendEnabled bool
 	ssmBackendEnabled bool
-	keyBackend backend.KeyBackend
+	keyBackend        backend.KeyBackend
 
-        rootTokenFd = "root_token_enc"
-        unsealKeysFd = "unseal_keys_enc"
+	rootTokenFd  = "root_token_enc"
+	unsealKeysFd = "unseal_keys_enc"
 )
 
 // InitRequest holds a Vault init request.
@@ -105,7 +106,6 @@ func main() {
 	vaultInsecureSkipVerify := boolFromEnv("VAULT_SKIP_VERIFY", false)
 
 	vaultAutoUnseal := boolFromEnv("VAULT_AUTO_UNSEAL", true)
-
 
 	if vaultAutoUnseal {
 		vaultStoredShares = intFromEnv("VAULT_STORED_SHARES", 1)
@@ -171,9 +171,15 @@ func main() {
 		},
 	}
 
-
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
+
+	// Backup
+	log.Println("Initialising backups")
+	var wg sync.WaitGroup
+	backupDone := make(chan struct{})
+	wg.Add(1)
+	go backup(backupDone, &wg)
 
 	//
 	// This needs reworked to account for context
@@ -182,12 +188,10 @@ func main() {
 		log.Printf("Shutting down")
 		//kmsCtxCancel()
 		//storageCtxCancel()
+		backupDone <- struct{}{}
+		wg.Wait()
 		os.Exit(0)
 	}
-
-	log.Println("Initialising backups")
-	done := make(chan bool)
-	Backup(done)
 
 	for {
 		select {
