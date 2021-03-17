@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -38,7 +39,7 @@ var (
 	vaultRecoveryShares    int
 	vaultRecoveryThreshold int
 
-	gcpProjectId string
+	gcpProjectId  string
 	gcpSecretName string
 
 	kmsService *cloudkms.Service
@@ -50,13 +51,13 @@ var (
 	authToken string
 
 	// Key backend
-	vaultKeyEngine string
+	vaultKeyEngine    string
 	kmsBackendEnabled bool
 	ssmBackendEnabled bool
-	keyBackend backend.KeyBackend
+	keyBackend        backend.KeyBackend
 
-        rootTokenFd = "root_token_enc"
-        unsealKeysFd = "unseal_keys_enc"
+	rootTokenFd  = "root_token_enc"
+	unsealKeysFd = "unseal_keys_enc"
 )
 
 // InitRequest holds a Vault init request.
@@ -106,7 +107,6 @@ func main() {
 
 	vaultAutoUnseal := boolFromEnv("VAULT_AUTO_UNSEAL", true)
 
-
 	if vaultAutoUnseal {
 		vaultStoredShares = intFromEnv("VAULT_STORED_SHARES", 1)
 		vaultRecoveryShares = intFromEnv("VAULT_RECOVERY_SHARES", 1)
@@ -122,23 +122,26 @@ func main() {
 
 	checkInterval := durFromEnv("CHECK_INTERVAL", 10*time.Second)
 
-	gcsBucketName = os.Getenv("GCS_BUCKET_NAME")
-	if gcsBucketName == "" {
-		log.Fatal("GCS_BUCKET_NAME must be set and not empty")
-	}
-
-	kmsKeyId = os.Getenv("KMS_KEY_ID")
-	if kmsKeyId == "" {
-		log.Fatal("KMS_KEY_ID must be set and not empty")
-	}
+	backupEnabled := boolFromEnv("VAULT_BACKUP_ENABLED", false)
 
 	vaultKeyEngine = os.Getenv("VAULT_KEY_ENGINE")
 	if vaultKeyEngine == "" {
 		log.Fatal("VAULT_KEY_ENGINE must be set and not empty")
 	}
 
-	// New Code
 	engineLc := strings.ToLower(vaultKeyEngine)
+
+	gcsBucketName = os.Getenv("GCS_BUCKET_NAME")
+	if gcsBucketName == "" && (engineLc == "kms" || backupEnabled) {
+		log.Fatal("GCS_BUCKET_NAME must be set and not empty")
+	}
+
+	kmsKeyId = os.Getenv("KMS_KEY_ID")
+	if kmsKeyId == "" && engineLc == "kms" {
+		log.Fatal("KMS_KEY_ID must be set and not empty")
+	}
+
+	// New Code
 	if engineLc == "kms" {
 		keyBackend, err = backend.NewKmsBackend(kmsKeyId, gcsBucketName)
 		if err != nil {
@@ -171,10 +174,19 @@ func main() {
 		},
 	}
 
-
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
+	// Backup
+	var wg sync.WaitGroup
+	backupDone := make(chan struct{})
+
+	if backupEnabled {
+		log.Println("Initialising backups")
+		wg.Add(1)
+		go backup(backupDone, &wg)
+
+	}
 	//
 	// This needs reworked to account for context
 	//
@@ -182,12 +194,12 @@ func main() {
 		log.Printf("Shutting down")
 		//kmsCtxCancel()
 		//storageCtxCancel()
+		if backupEnabled {
+			backupDone <- struct{}{}
+			wg.Wait()
+		}
 		os.Exit(0)
 	}
-
-	log.Println("Initialising backups")
-	done := make(chan bool)
-	Backup(done)
 
 	for {
 		select {
