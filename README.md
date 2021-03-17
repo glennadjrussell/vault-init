@@ -105,6 +105,10 @@ The vault-init service supports the following environment variables for configur
 - `KMS_KEY_ID` - The Google Cloud KMS key ID used to encrypt and decrypt the
   vault master key and root token.
 
+- `VAULT_BACKUP_ENABLED` (false) - Enable Vault backup which store the data in Google Cloud Storage Bucket.
+
+- `VAULT_BACKUP_INTERVAL` (60) - Time interval for running Vault backup in seconds. 
+
 - `VAULT_SECRET_SHARES` (5) - The number of human shares to create.
 
 - `VAULT_SECRET_THRESHOLD` (3) - The number of human shares required to unseal.

@@ -59,13 +59,13 @@ func backup(ch <-chan struct{}, wg *sync.WaitGroup) {
 			bodyBuffer, _ := ioutil.ReadAll(response.Body)
 			fileName := fmt.Sprintf("vault_backup_%d_%02d_%02dT%02d_%02d_%02d.snap",
 				t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
-			Upload(fileName, bodyBuffer)
+			upload(fileName, bodyBuffer)
 		}
 	}
 
 }
 
-func Upload(file string, backupData []byte) (bool, error) {
+func upload(file string, backupData []byte) (bool, error) {
 	log.Printf("Writing backup to %s/%s", gcsBucketName, file)
 
 	storageCtx, storageCtxCancel := context.WithCancel(context.Background())

@@ -122,23 +122,26 @@ func main() {
 
 	checkInterval := durFromEnv("CHECK_INTERVAL", 10*time.Second)
 
-	gcsBucketName = os.Getenv("GCS_BUCKET_NAME")
-	if gcsBucketName == "" {
-		log.Fatal("GCS_BUCKET_NAME must be set and not empty")
-	}
-
-	kmsKeyId = os.Getenv("KMS_KEY_ID")
-	if kmsKeyId == "" {
-		log.Fatal("KMS_KEY_ID must be set and not empty")
-	}
+	backupEnabled := boolFromEnv("VAULT_BACKUP_ENABLED", false)
 
 	vaultKeyEngine = os.Getenv("VAULT_KEY_ENGINE")
 	if vaultKeyEngine == "" {
 		log.Fatal("VAULT_KEY_ENGINE must be set and not empty")
 	}
 
-	// New Code
 	engineLc := strings.ToLower(vaultKeyEngine)
+
+	gcsBucketName = os.Getenv("GCS_BUCKET_NAME")
+	if gcsBucketName == "" && (engineLc == "kms" || backupEnabled) {
+		log.Fatal("GCS_BUCKET_NAME must be set and not empty")
+	}
+
+	kmsKeyId = os.Getenv("KMS_KEY_ID")
+	if kmsKeyId == "" && engineLc == "kms" {
+		log.Fatal("KMS_KEY_ID must be set and not empty")
+	}
+
+	// New Code
 	if engineLc == "kms" {
 		keyBackend, err = backend.NewKmsBackend(kmsKeyId, gcsBucketName)
 		if err != nil {
@@ -175,12 +178,15 @@ func main() {
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 
 	// Backup
-	log.Println("Initialising backups")
 	var wg sync.WaitGroup
 	backupDone := make(chan struct{})
-	wg.Add(1)
-	go backup(backupDone, &wg)
 
+	if backupEnabled {
+		log.Println("Initialising backups")
+		wg.Add(1)
+		go backup(backupDone, &wg)
+
+	}
 	//
 	// This needs reworked to account for context
 	//
@@ -188,8 +194,10 @@ func main() {
 		log.Printf("Shutting down")
 		//kmsCtxCancel()
 		//storageCtxCancel()
-		backupDone <- struct{}{}
-		wg.Wait()
+		if backupEnabled {
+			backupDone <- struct{}{}
+			wg.Wait()
+		}
 		os.Exit(0)
 	}
 
