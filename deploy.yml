@@ -7,13 +7,17 @@ metadata:
 spec:
   containers:
     - name: vault-init
-      image: glennadjrussell/vault-init:0.1.28
+      image: glennadjrussell/vault-init:0.1.29
       imagePullPolicy: Always
       env:
         - name: VAULT_ADDR
           value: "http://vault-0.vault-internal:8200"
         - name: VAULT_KEY_ENGINE
           value: SSM
+        - name: VAULT_BACKUP_ENABLED
+          value: "true"
+        - name: VAULT_BACKUP_INTERVAL
+          value: "1200"
         - name: GCP_PROJECT
           value: "qbank-266411"
         - name: GCS_BUCKET_NAME

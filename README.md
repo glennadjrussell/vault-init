@@ -22,7 +22,7 @@ metadata:
 spec:
   containers:
     - name: vault-init
-      image: glennadjrussell/vault-init:0.1.15
+      image: glennadjrussell/vault-init:0.1.29
       imagePullPolicy: Always
       env:
         - name: VAULT_ADDR
@@ -51,7 +51,7 @@ metadata:
 spec:
   containers:
     - name: vault-init
-      image: glennadjrussell/vault-init:0.1.15
+      image: glennadjrussell/vault-init:0.1.29
       imagePullPolicy: Always
       env:
         - name: VAULT_ADDR
@@ -83,7 +83,7 @@ To use this as part of a Kubernetes Vault Deployment:
 ```yaml
 containers:
 - name: vault-init
-  image: glennadjrussell/vault-init:0.1.15
+  image: glennadjrussell/vault-init:0.1.29
   imagePullPolicy: Always
   env:
   - name: GCS_BUCKET_NAME

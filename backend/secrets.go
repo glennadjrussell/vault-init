@@ -62,7 +62,7 @@ func (s *SecretsManagerBackend) Store(key string, payload []byte) (bool, error) 
 
 	secret, err := s.Client.CreateSecret(*s.Context, secretReq)
 	if err != nil {
-		return false, err
+		log.Fatalf("failed to create secret: %v", err)
 	}
 
 	addSecretReq := &secretmanagerpb.AddSecretVersionRequest{
