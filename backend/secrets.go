@@ -62,8 +62,20 @@ func (s *SecretsManagerBackend) Store(key string, payload []byte) (bool, error) 
 
 	secret, err := s.Client.CreateSecret(*s.Context, secretReq)
 	if err != nil {
-		log.Fatalf("failed to create secret: %v", err)
+		log.Printf("failed to create secret: %v. falling back to reading secret", err)
+
+		getSecretReq := &secretmanagerpb.GetSecretRequest{
+			Name: fmt.Sprintf("%s/secrets/%s", s.ProjectId, key),
+		}
+
+		secret, err = s.Client.GetSecret(*s.Context, getSecretReq)
+		if err != nil {
+		log.Fatalf("failed to read secret (%s): %v", fmt.Sprintf("%s/secrets/%s", s.ProjectId, key), err)
+			return false, err
+		}
 	}
+
+	log.Printf("Writing secret to %s", key)
 
 	addSecretReq := &secretmanagerpb.AddSecretVersionRequest{
 		Parent: secret.Name,

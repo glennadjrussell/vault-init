@@ -155,8 +155,16 @@ func main() {
 			log.Fatalf("unable to initialize secrets manager backend: %v", err)
 			return
 		}
+
 	} else {
 		log.Fatalf("vault key backend not recognized: %s", engineLc)
+		return
+	}
+
+	// Determine early if we have permissions to write to the store
+	_, err = keyBackend.Store("canary", []byte("slug"))
+	if err != nil {
+		log.Fatalf("check google secrets manager permissions for project %s: %v", gcpProjectId, err)
 		return
 	}
 
